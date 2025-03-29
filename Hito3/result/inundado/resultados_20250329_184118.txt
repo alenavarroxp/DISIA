@@ -1,0 +1,3 @@
+Modelo: modelo_20250329_184118.keras
+Accuracy transitable: 0.4286
+Accuracy inundado: 0.7143
