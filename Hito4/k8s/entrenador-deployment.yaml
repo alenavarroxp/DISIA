@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: entrenador
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: entrenador
+  template:
+    metadata:
+      labels:
+        app: entrenador
+    spec:
+      containers:
+      - name: entrenador
+        image: 1juanmi/entrenador:latest
+        ports:
+        - containerPort: 5000
+        volumeMounts:
+        - name: dataset-vol
+          mountPath: /datasets
+        - name: modelo-vol
+          mountPath: /compartido
+      volumes:
+      - name: dataset-vol
+        persistentVolumeClaim:
+          claimName: dataset-pvc
+      - name: modelo-vol
+        persistentVolumeClaim:
+          claimName: modelo-pvc

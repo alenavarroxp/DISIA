@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inferidor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: inferidor
+  template:
+    metadata:
+      labels:
+        app: inferidor
+    spec:
+      containers:
+      - name: inferidor
+        image: 1juanmi/inferidor:latest
+        ports:
+        - containerPort: 5001
+        volumeMounts:
+        - name: modelo-vol
+          mountPath: /compartido
+      volumes:
+      - name: modelo-vol
+        persistentVolumeClaim:
+          claimName: modelo-pvc

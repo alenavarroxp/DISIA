@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: entrenador-service
+spec:
+  selector:
+    app: entrenador
+  type: LoadBalancer
+  ports:
+  - protocol: TCP
+    port: 5000
+    targetPort: 5000
