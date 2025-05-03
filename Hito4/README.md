@@ -17,6 +17,7 @@ echo "Verificando los servicios desplegados:"
 kubectl get services
 echo "Verificando los volúmenes persistentes:"
 kubectl get pvc
+echo "Finalizando el despliegue de los servicios."
 ```
 
 ## Crear y Subir Imágenes Docker
