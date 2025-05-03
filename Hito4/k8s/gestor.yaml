@@ -1,0 +1,132 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ip-file-manager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ip-file-manager
+  template:
+    metadata:
+      labels:
+        app: ip-file-manager
+    spec:
+      containers:
+        - name: manager
+          image: nginx:alpine
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: dataset-vol
+              mountPath: /usr/share/nginx/html/dataset
+            - name: modelo-vol
+              mountPath: /usr/share/nginx/html/compartido
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              # Crear página de subida con formulario
+              cat <<HTML > /usr/share/nginx/html/index.html
+              <html>
+              <body>
+              <h1>Subir Archivo</h1>
+              <form action="/upload" method="post" enctype="multipart/form-data">
+                Archivos: <input type="file" name="files" webkitdirectory directory multiple>
+                <br>
+                Destino: 
+                <select name="type">
+                  <option value="dataset">Dataset</option>
+                  <option value="compartido">Modelo</option>
+                </select>
+                <br>
+                <input type="submit" value="Subir">
+              </form>
+              <h2>Archivos en Dataset:</h2>
+              <a href="/dataset/">Ver archivos</a>
+              <h2>Archivos en Modelo:</h2>
+              <a href="/compartido/">Ver archivos</a>
+              </body>
+              </html>
+              HTML
+
+              # Configurar Nginx con autoindex y proxy para subidas
+              cat <<EOF > /etc/nginx/nginx.conf
+              events {}
+              http {
+                  client_max_body_size 100M;
+
+                  server {
+                      listen 80;
+                      root /usr/share/nginx/html;
+                      autoindex on;
+
+                      location / {
+                          try_files \$uri \$uri/ =404;
+                      }
+
+                      location /upload {
+                          proxy_pass http://localhost:8080;
+                      }
+                  }
+              }
+              EOF
+              exec nginx -g 'daemon off;'
+        - name: upload-handler
+          image: python:alpine
+          command: ["sh", "-c"]
+          args:
+            - |
+              # Instalar Flask y crear aplicación de subida
+              pip install flask && 
+              cat <<'EOF' > /app.py
+              from flask import Flask, request, redirect
+              import os
+
+              app = Flask(__name__)
+
+              @app.route('/upload', methods=['POST'])
+              def upload_file():
+                  dest = request.form.get('type', 'dataset')
+                  if dest not in ['dataset', 'compartido']:
+                      return 'Destino inválido', 400
+
+                  for file in request.files.getlist('files'):
+                      if file.filename == '':
+                          continue
+                      save_path = os.path.join(f"/{dest}", file.filename)
+                      os.makedirs(os.path.dirname(save_path), exist_ok=True)
+                      file.save(save_path)
+                  return redirect('/')
+
+              if __name__ == '__main__':
+                  app.run(host='0.0.0.0', port=8080)
+              EOF
+              python /app.py
+          volumeMounts:
+            - name: dataset-vol
+              mountPath: /dataset
+            - name: modelo-vol
+              mountPath: /compartido
+          ports:
+            - containerPort: 8080
+      volumes:
+        - name: dataset-vol
+          persistentVolumeClaim:
+            claimName: dataset-pvc
+        - name: modelo-vol
+          persistentVolumeClaim:
+            claimName: modelo-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ip-file-manager-service
+spec:
+  selector:
+    app: ip-file-manager
+  type: LoadBalancer
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
