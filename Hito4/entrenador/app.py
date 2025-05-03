@@ -1,6 +1,5 @@
 import os
 import pandas as pd
-import numpy as np
 from datetime import datetime
 from flask import Flask, jsonify
 from tensorflow.keras.applications import EfficientNetB0
@@ -16,10 +15,9 @@ IMG_SIZE = (224, 224)
 BATCH_SIZE = 32
 EPOCHS = 5
 INIT_LR = 1e-4
-TRAIN_DIR = "/datasets/train"
-VAL_DIR = "/datasets/val"
+TRAIN_DIR = "/datasets/dataset"
+TEST_DIR = "/datasets/test"
 OUTPUT_DIR = "/compartido"
-
 
 def build_model():
     base_model = EfficientNetB0(include_top=False, weights='imagenet', input_shape=(*IMG_SIZE, 3))
@@ -40,7 +38,6 @@ def build_model():
     model = Model(inputs=inputs, outputs=[output_transitable, output_inundado])
     return model
 
-
 def compile_model(model):
     model.compile(
         optimizer=Adam(learning_rate=INIT_LR),
@@ -49,27 +46,39 @@ def compile_model(model):
     )
     return model
 
-
 def get_data_generators():
+    labels_path = os.path.join(TRAIN_DIR, "labels", "train_data.csv")
+    df = pd.read_csv(labels_path)
+
+    # Crear columna con la ruta completa de cada imagen
+    df["filename"] = df["ID"].astype(str) + ".jpg"
+    df["filename"] = df["filename"].apply(lambda x: os.path.join(TRAIN_DIR, "images", x))
+
     datagen = ImageDataGenerator(rescale=1./255, validation_split=0.2)
 
-    train_gen = datagen.flow_from_directory(
-        TRAIN_DIR,
+    train_gen = datagen.flow_from_dataframe(
+        dataframe=df,
+        x_col="filename",
+        y_col=["transitable", "Inundado"],
         target_size=IMG_SIZE,
         batch_size=BATCH_SIZE,
-        class_mode='multi_output',  # handled as two outputs
-        subset='training'
+        class_mode='raw',
+        subset='training',
+        shuffle=True
     )
 
-    val_gen = datagen.flow_from_directory(
-        TRAIN_DIR,
+    val_gen = datagen.flow_from_dataframe(
+        dataframe=df,
+        x_col="filename",
+        y_col=["transitable", "Inundado"],
         target_size=IMG_SIZE,
         batch_size=BATCH_SIZE,
-        class_mode='multi_output',
-        subset='validation'
+        class_mode='raw',
+        subset='validation',
+        shuffle=False
     )
+
     return train_gen, val_gen
-
 
 @app.route('/train', methods=['GET'])
 def train():
@@ -96,7 +105,6 @@ def train():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
