@@ -41,6 +41,7 @@ kind: Service
 metadata:
   name: mosquitto-service
 spec:
+  type: LoadBalancer
   selector:
     app: mosquitto
   ports:

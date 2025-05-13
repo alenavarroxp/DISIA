@@ -1,4 +1,3 @@
-# influxdb-deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -18,6 +17,19 @@ spec:
         image: influxdb:latest
         ports:
         - containerPort: 8086
+        env:
+        - name: DOCKER_INFLUXDB_INIT_MODE
+          value: "setup"
+        - name: DOCKER_INFLUXDB_INIT_USERNAME
+          value: "admin"
+        - name: DOCKER_INFLUXDB_INIT_PASSWORD
+          value: "admin123"
+        - name: DOCKER_INFLUXDB_INIT_ORG
+          value: "my-org"
+        - name: DOCKER_INFLUXDB_INIT_BUCKET
+          value: "my-bucket"
+        - name: DOCKER_INFLUXDB_INIT_ADMIN_TOKEN
+          value: "admin-token"
         volumeMounts:
         - name: influxdb-storage
           mountPath: /var/lib/influxdb2
@@ -41,7 +53,8 @@ apiVersion: v1
 kind: Service
 metadata:
   name: influxdb-service
-spec:
+spec:    
+  type: LoadBalancer
   selector:
     app: influxdb
   ports:

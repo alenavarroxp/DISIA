@@ -1,4 +1,3 @@
-# grafana-deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -21,10 +20,70 @@ spec:
         volumeMounts:
         - name: grafana-storage
           mountPath: /var/lib/grafana
+        - name: grafana-provisioning
+          mountPath: /etc/grafana/provisioning
       volumes:
       - name: grafana-storage
         persistentVolumeClaim:
           claimName: grafana-pvc
+      - name: grafana-provisioning
+        configMap:
+          name: grafana-provisioning
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-provisioning
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+    - name: InfluxDB
+      type: influxdb
+      access: proxy
+      url: http://influxdb-service:8086
+      jsonData:
+        httpMode: POST
+        organization: my-org
+        defaultBucket: my-bucket
+        tlsSkipVerify: true
+      secureJsonData:
+        token: admin-token
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+    - name: 'MQTT Dashboard'
+      orgId: 1
+      folder: ''
+      type: file
+      disableDeletion: true
+      editable: true
+      options:
+        path: /etc/grafana/provisioning/dashboards
+  mqtt-dashboard.json: |
+    {
+      "title": "MQTT Monitor",
+      "panels": [
+        {
+          "title": "Mensajes por Tópico",
+          "type": "stat",
+          "datasource": "InfluxDB",
+          "targets": [{
+            "query": "from(bucket: \"my-bucket\") |> range(start: -15m) |> filter(fn: (r) => r[\"_measurement\"] == \"mqtt_consumer\") |> group(columns: [\"topic\"]) |> count()",
+            "rawQuery": true
+          }]
+        },
+        {
+          "title": "Últimos Valores",
+          "type": "table",
+          "datasource": "InfluxDB",
+          "targets": [{
+            "query": "from(bucket: \"my-bucket\") |> range(start: -15m) |> filter(fn: (r) => r[\"_measurement\"] == \"mqtt_consumer\") |> last()",
+            "rawQuery": true
+          }]
+        }
+      ]
+    }
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim

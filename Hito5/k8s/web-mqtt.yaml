@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mqtt-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mqtt-web
+  template:
+    metadata:
+      labels:
+        app: mqtt-web
+    spec:
+      containers:
+      - name: web
+        image: python:3.9-alpine
+        ports:
+        - containerPort: 5000
+        command: ["sh", "-c"]
+        args:
+          - |
+            pip install flask paho-mqtt && 
+            echo '
+            from flask import Flask, request
+            import paho.mqtt.publish as publish
+
+            app = Flask(__name__)
+            topics = ["test/topic", "sensores/temperatura", "sensores/humedad"]
+
+            @app.route("/")
+            def home():
+                return f"""
+                <form action="/send" method="post">
+                    <select name="topic">
+                        {"".join(f"<option>{t}</option>" for t in topics)}
+                    </select><br>
+                    <input type="text" name="message" placeholder="Mensaje"><br>
+                    <input type="submit" value="Enviar">
+                </form>
+                """
+
+            @app.route("/send", methods=["POST"])
+            def send():
+                publish.single(
+                    request.form["topic"],
+                    request.form["message"],
+                    hostname="mosquitto-service"
+                )
+                return "Mensaje enviado!"
+            
+            app.run(host="0.0.0.0", port=5000)
+            ' > app.py && python app.py
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mqtt-web-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: mqtt-web
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 5000
