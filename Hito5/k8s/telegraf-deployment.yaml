@@ -1,0 +1,46 @@
+# telegraf-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: telegraf
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: telegraf
+  template:
+    metadata:
+      labels:
+        app: telegraf
+    spec:
+      containers:
+      - name: telegraf
+        image: telegraf:latest
+        volumeMounts:
+        - name: telegraf-config
+          mountPath: /etc/telegraf/telegraf.conf
+          subPath: telegraf.conf
+      volumes:
+      - name: telegraf-config
+        configMap:
+          name: telegraf-config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: telegraf-config
+data:
+  telegraf.conf: |
+    [agent]
+      interval = "10s"
+    
+    [[inputs.mqtt_consumer]]
+      servers = ["tcp://mosquitto-service:1883"]
+      topics = ["#"]
+      data_format = "influx"
+    
+    [[outputs.influxdb_v2]]
+      urls = ["http://influxdb-service:8086"]
+      token = "admin-token"
+      organization = "my-org"
+      bucket = "my-bucket"
