@@ -24,30 +24,37 @@ spec:
             echo '
             from flask import Flask, request
             import paho.mqtt.publish as publish
+            import json
 
             app = Flask(__name__)
-            topics = ["test/topic", "sensores/temperatura", "sensores/humedad"]
 
             @app.route("/")
             def home():
-                return f"""
+                return """
+                <h2>Enviar mensaje MQTT</h2>
                 <form action="/send" method="post">
-                    <select name="topic">
-                        {"".join(f"<option>{t}</option>" for t in topics)}
-                    </select><br>
-                    <input type="text" name="message" placeholder="Mensaje"><br>
+                    Tópico: <input type="text" name="topic" placeholder="ej: sensores/estado"><br><br>
+                    Mensaje: <input type="text" name="message" placeholder="Mensaje principal"><br><br>
+                    Uso CPU (%): <input type="number" name="cpu" step="0.1"><br><br>
+                    Uso Memoria (%): <input type="number" name="mem" step="0.1"><br><br>
                     <input type="submit" value="Enviar">
                 </form>
                 """
 
             @app.route("/send", methods=["POST"])
             def send():
+                data = {
+                    "mensaje": request.form["message"],
+                    "cpu": float(request.form["cpu"]),
+                    "memoria": float(request.form["mem"])
+                }
+                topic = request.form["topic"]
                 publish.single(
-                    request.form["topic"],
-                    request.form["message"],
+                    topic,
+                    json.dumps(data),
                     hostname="mosquitto-service"
                 )
-                return "Mensaje enviado!"
+                return f"Mensaje enviado al tópico '{topic}': {data}"
             
             app.run(host="0.0.0.0", port=5000)
             ' > app.py && python app.py

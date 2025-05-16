@@ -13,22 +13,29 @@ spec:
         app: grafana
     spec:
       containers:
-      - name: grafana
-        image: grafana/grafana:latest
-        ports:
-        - containerPort: 3000
-        volumeMounts:
-        - name: grafana-storage
-          mountPath: /var/lib/grafana
-        - name: grafana-provisioning
-          mountPath: /etc/grafana/provisioning
+        - name: grafana
+          image: grafana/grafana:latest
+          ports:
+            - containerPort: 3000
+          volumeMounts:
+            - name: grafana-storage
+              mountPath: /var/lib/grafana
+            - name: grafana-provisioning
+              mountPath: /etc/grafana/provisioning/datasources/datasources.yaml
+              subPath: datasources.yaml
+            - name: grafana-provisioning
+              mountPath: /etc/grafana/provisioning/dashboards/dashboards.yaml
+              subPath: dashboards.yaml
+            - name: grafana-provisioning
+              mountPath: /etc/grafana/provisioning/dashboards/mqtt-dashboard.json
+              subPath: mqtt-dashboard.json
       volumes:
-      - name: grafana-storage
-        persistentVolumeClaim:
-          claimName: grafana-pvc
-      - name: grafana-provisioning
-        configMap:
-          name: grafana-provisioning
+        - name: grafana-storage
+          persistentVolumeClaim:
+            claimName: grafana-pvc
+        - name: grafana-provisioning
+          configMap:
+            name: grafana-provisioning
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -38,17 +45,19 @@ data:
   datasources.yaml: |
     apiVersion: 1
     datasources:
-    - name: InfluxDB
-      type: influxdb
-      access: proxy
-      url: http://influxdb-service:8086
-      jsonData:
-        httpMode: POST
-        organization: my-org
-        defaultBucket: my-bucket
-        tlsSkipVerify: true
-      secureJsonData:
-        token: admin-token
+      - name: InfluxDB
+        type: influxdb
+        access: proxy
+        url: http://influxdb-service:8086
+        jsonData:
+          version: Flux
+          httpMode: POST
+          organization: my-org
+          defaultBucket: my-bucket
+          tlsSkipVerify: true
+        secureJsonData:
+          token: admin-token
+          
   dashboards.yaml: |
     apiVersion: 1
     providers:
@@ -60,6 +69,7 @@ data:
       editable: true
       options:
         path: /etc/grafana/provisioning/dashboards
+
   mqtt-dashboard.json: |
     {
       "title": "MQTT Monitor",
