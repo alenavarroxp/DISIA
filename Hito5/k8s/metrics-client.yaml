@@ -1,0 +1,59 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: metrics-reader
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: pod-metrics-reader
+rules:
+- apiGroups: ["metrics.k8s.io"]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: read-pod-metrics
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: pod-metrics-reader
+subjects:
+- kind: ServiceAccount
+  name: metrics-reader
+  namespace: default
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metrics-client
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: metrics-client
+  template:
+    metadata:
+      labels:
+        app: metrics-client
+    spec:
+      serviceAccountName: metrics-reader
+      containers:
+      - name: metrics-client
+        image: curlimages/curl:8.00.1
+        command: 
+        - "sh"
+        - "-c"
+        - |
+          while true; do
+            echo "Obteniendo métricas..."
+            TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+            curl -sSk \
+              -H "Authorization: Bearer $TOKEN" \
+              https://kubernetes.default.svc/apis/metrics.k8s.io/v1beta1/pods
+            sleep 30
+          done
