@@ -9,9 +9,9 @@ kind: ClusterRole
 metadata:
   name: pod-metrics-reader
 rules:
-- apiGroups: ["metrics.k8s.io"]
-  resources: ["pods", "nodes"] 
-  verbs: ["get", "list", "watch"]
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["pods", "nodes"]
+    verbs: ["get", "list", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -22,9 +22,9 @@ roleRef:
   kind: ClusterRole
   name: pod-metrics-reader
 subjects:
-- kind: ServiceAccount
-  name: metrics-reader
-  namespace: default
+  - kind: ServiceAccount
+    name: metrics-reader
+    namespace: default
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -43,14 +43,27 @@ spec:
     spec:
       serviceAccountName: metrics-reader
       containers:
-      - name: metrics-client
-        image: bitnami/kubectl:latest
-        command: 
-        - "sh"
-        - "-c"
-        - |
-          while true; do
-            kubectl get --raw "/apis/metrics.k8s.io/v1beta1/pods" | jq '.items[] | {name: .metadata.name, cpu: .containers[].usage.cpu, memory: .containers[].usage.memory}';
-            sleep 60;
-          done
-        
+        - name: metrics-client
+          image: alpine:latest
+          command:
+            - "sh"
+            - "-c"
+            - |
+              echo "[INFO] Instalando dependencias..."
+              apk add --no-cache curl jq mosquitto-clients || { echo '[ERROR] Fallo instalando dependencias'; exit 1; }
+              echo "[INFO] Descargando kubectl..."
+              wget -O /usr/local/bin/kubectl https://dl.k8s.io/release/v1.29.0/bin/linux/amd64/kubectl && chmod +x /usr/local/bin/kubectl || { echo '[ERROR] Fallo descargando kubectl'; exit 1; }
+              echo "[INFO] Iniciando bucle de métricas..."
+              while true; do
+                echo "[INFO] Obteniendo métricas de pods..."
+                kubectl get --raw "/apis/metrics.k8s.io/v1beta1/pods" | jq -c '.items[] | {name: .metadata.name, cpu: (.containers[].usage.cpu | sub("n$"; "") | tonumber), memoria: (.containers[].usage.memory | sub("Ki$"; "") | tonumber)}' | while read pod; do
+                  nombre=$(echo $pod | jq -r '.name')
+                  cpu=$(echo $pod | jq -r '.cpu')
+                  memoria=$(echo $pod | jq -r '.memoria')
+                  mensaje="{\"mensaje\": \"$nombre\", \"cpu\": $cpu, \"memoria\": $memoria}"
+                  echo "[INFO] Enviando a MQTT: pod/$nombre -> $mensaje"
+                  mosquitto_pub -h mosquitto-service -p 1883 -t pod/$nombre -m "$mensaje" || echo "[ERROR] Fallo al enviar a MQTT para pod $nombre"
+                done
+                echo "[INFO] Esperando 30 segundos para la siguiente iteración..."
+                sleep 30;
+              done
