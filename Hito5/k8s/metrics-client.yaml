@@ -10,7 +10,7 @@ metadata:
   name: pod-metrics-reader
 rules:
 - apiGroups: ["metrics.k8s.io"]
-  resources: ["pods"]
+  resources: ["pods", "nodes"] 
   verbs: ["get", "list", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -44,16 +44,13 @@ spec:
       serviceAccountName: metrics-reader
       containers:
       - name: metrics-client
-        image: curlimages/curl:8.00.1
+        image: bitnami/kubectl:latest
         command: 
         - "sh"
         - "-c"
         - |
           while true; do
-            echo "Obteniendo métricas..."
-            TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
-            curl -sSk \
-              -H "Authorization: Bearer $TOKEN" \
-              https://kubernetes.default.svc/apis/metrics.k8s.io/v1beta1/pods
-            sleep 30
+            kubectl get --raw "/apis/metrics.k8s.io/v1beta1/pods" | jq '.items[] | {name: .metadata.name, cpu: .containers[].usage.cpu, memory: .containers[].usage.memory}';
+            sleep 60;
           done
+        
