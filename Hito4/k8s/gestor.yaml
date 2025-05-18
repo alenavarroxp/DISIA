@@ -45,11 +45,14 @@ spec:
               <a href="/dataset/">Ver archivos</a>
               <h2>Archivos en Modelo:</h2>
               <a href="/compartido/">Ver archivos</a>
+              <form action="/clear" method="post" style="margin-top:20px;">
+                <input type="submit" value="Limpiar Carpetas" onclick="return confirm('¿Seguro que quieres borrar todo el contenido de las carpetas?');">
+              </form>
               </body>
               </html>
               HTML
 
-              # Configurar Nginx con autoindex y proxy para subidas
+              # Configurar Nginx con autoindex y proxy para subidas y limpieza
               cat <<EOF > /etc/nginx/nginx.conf
               events {}
               http {
@@ -67,6 +70,9 @@ spec:
                       location /upload {
                           proxy_pass http://localhost:8080;
                       }
+                      location /clear {
+                          proxy_pass http://localhost:8080;
+                      }
                   }
               }
               EOF
@@ -76,11 +82,12 @@ spec:
           command: ["sh", "-c"]
           args:
             - |
-              # Instalar Flask y crear aplicación de subida
+              # Instalar Flask y crear aplicación de subida y limpieza
               pip install flask && 
               cat <<'EOF' > /app.py
               from flask import Flask, request, redirect
               import os
+              import shutil
 
               app = Flask(__name__)
 
@@ -96,6 +103,20 @@ spec:
                       save_path = os.path.join(f"/{dest}", file.filename)
                       os.makedirs(os.path.dirname(save_path), exist_ok=True)
                       file.save(save_path)
+                  return redirect('/')
+
+              @app.route('/clear', methods=['POST'])
+              def clear_folders():
+                  for folder in ['/dataset', '/compartido']:
+                      for filename in os.listdir(folder):
+                          file_path = os.path.join(folder, filename)
+                          try:
+                              if os.path.isfile(file_path) or os.path.islink(file_path):
+                                  os.unlink(file_path)
+                              elif os.path.isdir(file_path):
+                                  shutil.rmtree(file_path)
+                          except Exception as e:
+                              print(f'Failed to delete {file_path}. Reason: {e}')
                   return redirect('/')
 
               if __name__ == '__main__':
