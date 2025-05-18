@@ -35,12 +35,19 @@ data:
 
     [[inputs.mqtt_consumer]]
       servers = ["tcp://mosquitto-service:1883"]
-      topics = ["#"]
+      topics = ["data/modelo"]
       data_format = "json"
-      json_string_fields = ["mensaje", "fecha"]
+      json_string_fields = ["fecha"]
       tag_keys = ["topic"]
       json_time_key = "fecha"
       json_time_format = "2006-01-02T15:04:05.999999Z07:00"
+
+    [[inputs.mqtt_consumer]]
+      servers = ["tcp://mosquitto-service:1883"]
+      topics = ["pod/#"]
+      data_format = "json"
+      json_string_fields = ["mensaje"]
+      tag_keys = ["topic"]
 
     [[outputs.influxdb_v2]]
       urls = ["http://influxdb-service:8086"]
