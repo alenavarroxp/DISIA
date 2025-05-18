@@ -11,6 +11,7 @@ spec:
     metadata:
       labels:
         app: grafana
+        force-reload: "1"  # Fuerza el redeploy si cambias este valor
     spec:
       containers:
         - name: grafana
@@ -82,11 +83,11 @@ data:
       "panels": [
         {
           "type": "stat",
-          "title": "Mensajes por Tópico",
+          "title": "Pods Activos",
           "datasource": "InfluxDB",
           "targets": [
             {
-              "query": "from(bucket: 'my-bucket') |> range(start: -15m) |> filter(fn: (r) => r._measurement == 'mqtt_consumer') |> group(columns: ['topic']) |> count()",
+              "query": "from(bucket: \"my-bucket\") |> range(start: -1m) |> filter(fn: (r) => r._measurement == \"mqtt_consumer\" and r._field == \"cpu\" and exists r.topic and r.topic =~ /^pod\\//) |> distinct(column: \"topic\") |> group() |> count()",
               "rawQuery": true
             }
           ],
@@ -97,12 +98,28 @@ data:
           "options": {}
         },
         {
-          "type": "table",
-          "title": "Últimos Valores",
+          "type": "timeseries",
+          "title": "Uso de CPU (pod grafana-*)",
           "datasource": "InfluxDB",
           "targets": [
             {
-              "query": "from(bucket: 'my-bucket') |> range(start: -15m) |> filter(fn: (r) => r._measurement == 'mqtt_consumer') |> last()",
+              "query": "from(bucket: \"my-bucket\") |> range(start: -1m) |> filter(fn: (r) => r._measurement == \"mqtt_consumer\" and r._field == \"cpu\" and r.topic =~ /pod\\/grafana-.*/)",
+              "rawQuery": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          },
+          "options": {}
+        },
+        {
+          "type": "timeseries",
+          "title": "Uso de Memoria (pod grafana-*)",
+          "datasource": "InfluxDB",
+          "targets": [
+            {
+              "query": "from(bucket: \"my-bucket\") |> range(start: -1m) |> filter(fn: (r) => r._measurement == \"mqtt_consumer\" and r._field == \"memoria\" and r.topic =~ /pod\\/grafana-.*/)",
               "rawQuery": true
             }
           ],
