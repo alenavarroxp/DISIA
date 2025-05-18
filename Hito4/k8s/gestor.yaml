@@ -83,26 +83,45 @@ spec:
           args:
             - |
               # Instalar Flask y crear aplicación de subida y limpieza
-              pip install flask && 
+              pip install flask paho-mqtt && 
               cat <<'EOF' > /app.py
               from flask import Flask, request, redirect
               import os
               import shutil
+              import datetime
+              import paho.mqtt.publish as publish
 
               app = Flask(__name__)
 
+              valor_contador = 0
+
               @app.route('/upload', methods=['POST'])
               def upload_file():
+                  global valor_contador
                   dest = request.form.get('type', 'dataset')
                   if dest not in ['dataset', 'compartido']:
                       return 'Destino inválido', 400
 
+                  new_file_uploaded = False
                   for file in request.files.getlist('files'):
                       if file.filename == '':
                           continue
                       save_path = os.path.join(f"/{dest}", file.filename)
                       os.makedirs(os.path.dirname(save_path), exist_ok=True)
                       file.save(save_path)
+                      if dest == 'compartido':
+                          new_file_uploaded = True
+                  if new_file_uploaded:
+                      valor_contador += 1
+                      fecha_utc = datetime.datetime.now(datetime.timezone.utc).isoformat()
+                      payload = f'{{"fecha":"{fecha_utc}", "cambios": {valor_contador}}}'
+                      mqtt_host = 'mosquitto-service'
+                      mqtt_port = 1883
+                      try:
+                          print(f"Publishing payload: {payload} to {mqtt_host}:{mqtt_port}", flush=True)
+                          publish.single('data/modelo', payload.encode('utf-8'), hostname=mqtt_host, port=mqtt_port)
+                      except Exception as e:
+                          print(f"MQTT publish failed: {e}", flush=True)
                   return redirect('/')
 
               @app.route('/clear', methods=['POST'])
@@ -116,7 +135,7 @@ spec:
                               elif os.path.isdir(file_path):
                                   shutil.rmtree(file_path)
                           except Exception as e:
-                              print(f'Failed to delete {file_path}. Reason: {e}')
+                              print(f'Failed to delete {file_path}. Reason: {e}', flush=True)
                   return redirect('/')
 
               if __name__ == '__main__':
