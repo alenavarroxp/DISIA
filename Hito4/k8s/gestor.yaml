@@ -82,18 +82,51 @@ spec:
           command: ["sh", "-c"]
           args:
             - |
-              # Instalar Flask y crear aplicación de subida y limpieza
-              pip install flask paho-mqtt && 
+              pip install flask paho-mqtt pandas &&
               cat <<'EOF' > /app.py
               from flask import Flask, request, redirect
               import os
               import shutil
               import datetime
+              import pandas as pd
               import paho.mqtt.publish as publish
 
               app = Flask(__name__)
-
               valor_contador = 0
+
+              def buscar_y_mostrar_csvs():
+                  dataset_dir = '/dataset'
+                  for root, dirs, files in os.walk(dataset_dir):
+                      for name in files:
+                          if name in ['train_data.csv', 'test_data.csv']:
+                              path_csv = os.path.join(root, name)
+                              try:
+                                  df = pd.read_csv(path_csv)
+                                  if {'transitable', 'Inundado'}.issubset(df.columns):
+                                      distribucion = df.groupby(['transitable', 'Inundado']).size().reset_index(name='cantidad')
+                                      total = distribucion['cantidad'].sum()
+                                      distribucion['proporcion'] = distribucion['cantidad'] / total
+                                      print(f"\nDistribución en {name}:\n", distribucion.to_string(index=False), flush=True)
+                                      topic = f"data/{'train' if 'train' in name else 'test'}"
+                                      lineas = []
+                                      for _, row in distribucion.iterrows():
+                                          linea = (
+                                              f"distribucion_transito,origen={'train' if 'train' in name else 'test'}"
+                                              f",transitable={row['transitable']},inundado={row['Inundado']}"
+                                              f" cantidad={int(row['cantidad'])},proporcion={row['proporcion']}"
+                                          )
+                                          lineas.append(linea)
+                                      payload = "\n".join(lineas)
+                                      try:
+                                          publish.single(topic, payload.encode("utf-8"), hostname="mosquitto-service", port=1883)
+                                          print(f"Enviada distribución por MQTT en topic '{topic}':\n{payload}", flush=True)
+                                      except Exception as e:
+                                          print(f"Error al enviar distribución por MQTT: {e}", flush=True)
+                                  else:
+                                      print(f"El archivo {name} no contiene las columnas requeridas 'transitable' e 'Inundado'", flush=True)
+
+                              except Exception as e:
+                                  print(f"Error leyendo {name} en {path_csv}: {e}", flush=True)
 
               @app.route('/upload', methods=['POST'])
               def upload_file():
@@ -111,6 +144,10 @@ spec:
                       file.save(save_path)
                       if dest == 'compartido':
                           new_file_uploaded = True
+
+                  if dest == 'dataset':
+                      buscar_y_mostrar_csvs()
+
                   if new_file_uploaded:
                       valor_contador += 1
                       fecha_utc = datetime.datetime.now(datetime.timezone.utc).isoformat()
@@ -122,6 +159,7 @@ spec:
                           publish.single('data/modelo', payload.encode('utf-8'), hostname=mqtt_host, port=mqtt_port)
                       except Exception as e:
                           print(f"MQTT publish failed: {e}", flush=True)
+
                   return redirect('/')
 
               @app.route('/clear', methods=['POST'])

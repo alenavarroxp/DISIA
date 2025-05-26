@@ -35,6 +35,11 @@ data:
 
     [[inputs.mqtt_consumer]]
       servers = ["tcp://mosquitto-service:1883"]
+      topics = ["data/train", "data/test"]
+      data_format = "influx"
+
+    [[inputs.mqtt_consumer]]
+      servers = ["tcp://mosquitto-service:1883"]
       topics = ["data/modelo"]
       data_format = "json"
       json_string_fields = ["fecha"]
