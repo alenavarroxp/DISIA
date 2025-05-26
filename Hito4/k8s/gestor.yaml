@@ -111,7 +111,7 @@ spec:
                                       lineas = []
                                       for _, row in distribucion.iterrows():
                                           linea = (
-                                              f"distribucion_transito,origen={'train' if 'train' in name else 'test'}"
+                                              f"distribucion,origen={'train' if 'train' in name else 'test'}"
                                               f",transitable={row['transitable']},inundado={row['Inundado']}"
                                               f" cantidad={int(row['cantidad'])},proporcion={row['proporcion']}"
                                           )
