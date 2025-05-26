@@ -198,28 +198,6 @@ data:
           }
         },
         {
-          "type": "timeseries",
-          "title": "Uso de Memoria (pod inferidor-*)",
-          "datasource": "InfluxDB",
-          "targets": [
-            {
-              "query": "from(bucket: \"my-bucket\") |> range(start: -15m) |> filter(fn: (r) => r._measurement == \"mqtt_consumer\" and r._field == \"memoria\" and r.topic =~ /pod\\/inferidor-.*/) ",
-              "rawQuery": true
-            }
-          ],
-          "fieldConfig": {
-            "defaults": {},
-            "overrides": []
-          },
-          "options": {},
-          "gridPos": {
-            "h": 10,
-            "w": 12,
-            "x": 0,
-            "y": 0
-          }
-        },
-        {
           "type": "stat",
           "title": "Versión de actual del Modelo",
           "datasource": "InfluxDB",
@@ -238,9 +216,77 @@ data:
             "h": 6,
             "w": 12,
             "x": 12,
-            "y": 0
+            "y": 6
+          }
+        },
+        {
+          "type": "table",
+          "title": "Distribución (Train)",
+          "datasource": "InfluxDB",
+          "targets": [
+            {
+              "query": "from(bucket: \"my-bucket\") |> range(start: -30d) |> filter(fn: (r) => r._measurement == \"distribucion\" and (r._field == \"cantidad\" or r._field == \"proporcion\") and r.origen == \"train\") |> pivot( rowKey: [ \"inundado\", \"transitable\"], columnKey: [\"_field\"], valueColumn: \"_value\" ) |> group(columns: [\"inundado\", \"transitable\"]) |> keep(columns: [\"_time\", \"inundado\", \"transitable\", \"cantidad\", \"proporcion\"])",
+              "refId": "A",
+              "rawQuery": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
+          "options": {
+            "showHeader": true,
+            "sortBy": [
+              {
+                "displayName": "_field",
+                "desc": false
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 10,
+            "w": 12,
+            "x": 12,
+            "y": 20
+          }
+        },
+        {
+          "type": "table",
+          "title": "Distribución (Test)",
+          "datasource": "InfluxDB",
+          "targets": [
+            {
+              "query": "from(bucket: \"my-bucket\") |> range(start: -30d) |> filter(fn: (r) => r._measurement == \"distribucion\" and (r._field == \"cantidad\" or r._field == \"proporcion\") and r.origen == \"test\") |> pivot( rowKey: [ \"inundado\", \"transitable\"], columnKey: [\"_field\"], valueColumn: \"_value\" ) |> group(columns: [\"inundado\", \"transitable\"]) |> keep(columns: [\"_time\", \"inundado\", \"transitable\", \"cantidad\", \"proporcion\"])",
+              "refId": "A",
+              "rawQuery": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
+          "options": {
+            "showHeader": true,
+            "sortBy": [
+              {
+                "displayName": "_field",
+                "desc": false
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 10,
+            "w": 12,
+            "x": 12,
+            "y": 22
           }
         }
+
+        
       ]
     }
 ---
