@@ -11,6 +11,7 @@ spec:
     metadata:
       labels:
         app: grafana
+        force-reload: "1"
     spec:
       containers:
         - name: grafana
@@ -82,11 +83,11 @@ data:
       "panels": [
         {
           "type": "stat",
-          "title": "Mensajes por Tópico",
+          "title": "Pods Activos",
           "datasource": "InfluxDB",
           "targets": [
             {
-              "query": "from(bucket: 'my-bucket') |> range(start: -15m) |> filter(fn: (r) => r._measurement == 'mqtt_consumer') |> group(columns: ['topic']) |> count()",
+              "query": "from(bucket: \"my-bucket\") |> range(start: -1m) |> filter(fn: (r) => r._measurement == \"mqtt_consumer\" and r._field == \"cpu\" and exists r.topic and r.topic =~ /^pod\\//) |> distinct(column: \"topic\") |> group() |> count()",
               "rawQuery": true
             }
           ],
@@ -94,15 +95,21 @@ data:
             "defaults": {},
             "overrides": []
           },
-          "options": {}
+          "options": {},
+          "gridPos": {
+            "h": 6,
+            "w": 12,
+            "x": 12,
+            "y": 0
+          }
         },
         {
-          "type": "table",
-          "title": "Últimos Valores",
+          "type": "timeseries",
+          "title": "Uso de CPU (pod entrenador-*)",
           "datasource": "InfluxDB",
           "targets": [
             {
-              "query": "from(bucket: 'my-bucket') |> range(start: -15m) |> filter(fn: (r) => r._measurement == 'mqtt_consumer') |> last()",
+              "query": "from(bucket: \"my-bucket\") |> range(start: -15m) |> filter(fn: (r) => r._measurement == \"mqtt_consumer\" and r._field == \"cpu\" and r.topic =~ /pod\\/entrenador-.*/) ",
               "rawQuery": true
             }
           ],
@@ -110,7 +117,129 @@ data:
             "defaults": {},
             "overrides": []
           },
-          "options": {}
+          "options": {},
+          "gridPos": {
+            "h": 10,
+            "w": 12,
+            "x": 0,
+            "y": 0
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "Uso de Memoria (pod entrenador-*)",
+          "datasource": "InfluxDB",
+          "targets": [
+            {
+              "query": "from(bucket: \"my-bucket\") |> range(start: -15m) |> filter(fn: (r) => r._measurement == \"mqtt_consumer\" and r._field == \"memoria\" and r.topic =~ /pod\\/entrenador-.*/) ",
+              "rawQuery": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          },
+          "options": {},
+          "gridPos": {
+            "h": 10,
+            "w": 12,
+            "x": 0,
+            "y": 0
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "Uso de CPU (pod inferidor-*)",
+          "datasource": "InfluxDB",
+          "targets": [
+            {
+              "refId": "A",
+              "query": "from(bucket: \"my-bucket\") |> range(start: -15m) |> filter(fn: (r) => r._measurement == \"mqtt_consumer\" and r._field == \"cpu\" and r.topic =~ /pod\\/inferidor-.*/) ",
+              "rawQuery": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          },
+          "options": {},
+          "gridPos": {
+            "h": 10,
+            "w": 12,
+            "x": 0,
+            "y": 0
+          },
+          "alert": {
+            "alertRuleTags": {},
+            "conditions": [
+              {
+                "evaluator": {
+                  "params": [150000],
+                  "type": "gt"
+                },
+                "operator": "and",
+                "query": {
+                  "params": ["A"]
+                },
+                "reducer": {
+                  "params": [],
+                  "type": "max"
+                },
+                "type": "query"
+              }
+            ],
+            "executionErrorState": "alerting",
+            "for": "1m",
+            "frequency": "1m",
+            "handler": 1,
+            "name": "CPU alta en inferidor",
+            "noDataState": "no_data",
+            "notifications": []
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "Uso de Memoria (pod inferidor-*)",
+          "datasource": "InfluxDB",
+          "targets": [
+            {
+              "query": "from(bucket: \"my-bucket\") |> range(start: -15m) |> filter(fn: (r) => r._measurement == \"mqtt_consumer\" and r._field == \"memoria\" and r.topic =~ /pod\\/inferidor-.*/) ",
+              "rawQuery": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          },
+          "options": {},
+          "gridPos": {
+            "h": 10,
+            "w": 12,
+            "x": 0,
+            "y": 0
+          }
+        },
+        {
+          "type": "stat",
+          "title": "Versión de actual del Modelo",
+          "datasource": "InfluxDB",
+          "targets": [
+            {
+              "query": "from(bucket: \"my-bucket\") |> range(start: -30d) |> filter(fn: (r) => r._measurement == \"mqtt_consumer\" and r._field == \"cambios\" and r.topic == \"data/modelo\") |> last()",
+              "rawQuery": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          },
+          "options": {},
+          "gridPos": {
+            "h": 6,
+            "w": 12,
+            "x": 12,
+            "y": 0
+          }
         }
       ]
     }
