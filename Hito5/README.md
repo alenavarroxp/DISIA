@@ -10,3 +10,6 @@ http://localhost:3000/ (Grafana) admin admin
 http://localhost:8086/ (InfluxDB) admin admin123
 http://localhost:8080/ (Web-MQTT)
 
+Para visionar todas las graficas es necesario lanzar todos los pods tanto de hito 4 como de hito 5.
+
+Despues subir los datos al hito 4 (modelo y dataset) y automaticamente se mostraran la version del modelo y la distribucion de los datos
