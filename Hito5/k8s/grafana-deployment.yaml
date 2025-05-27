@@ -198,6 +198,28 @@ data:
           }
         },
         {
+          "type": "timeseries",
+          "title": "Uso de Memoria (pod inferidor-*)",
+          "datasource": "InfluxDB",
+          "targets": [
+            {
+              "query": "from(bucket: \"my-bucket\") |> range(start: -15m) |> filter(fn: (r) => r._measurement == \"mqtt_consumer\" and r._field == \"memoria\" and r.topic =~ /pod\\/inferidor-.*/) ",
+              "rawQuery": true
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          },
+          "options": {},
+          "gridPos": {
+            "h": 10,
+            "w": 12,
+            "x": 0,
+            "y": 0
+          }
+        },
+        {
           "type": "stat",
           "title": "Versión de actual del Modelo",
           "datasource": "InfluxDB",
